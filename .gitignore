@@ -1,0 +1,11 @@
+node_modules/
+dist/
+*.log
+.env
+.DS_Store
+.package-lock.json
+.vscode/
+.idea/
+.claude/
+.claude/settings.local.json
+package-lock.json
