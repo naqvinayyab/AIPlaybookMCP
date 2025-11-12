@@ -1,0 +1,155 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://cddo.gov.uk/schemas/ai-playbook-mcp/test-fixtures.schema.json",
+  "title": "AI Playbook Documentation Fixture Schema",
+  "description": "JSON Schema defining the structure of programmatically-generated markdown documentation fixtures for testing",
+  "type": "object",
+  "required": ["filename", "title", "sections"],
+  "properties": {
+    "filename": {
+      "type": "string",
+      "description": "Name of the markdown file (must end with .md)",
+      "pattern": "^[a-z0-9_-]+\\.md$",
+      "examples": ["principles.md", "understanding_ai.md"]
+    },
+    "title": {
+      "type": "string",
+      "description": "Main H1 heading of the document",
+      "minLength": 5,
+      "maxLength": 100,
+      "examples": ["The 10 Principles for AI in Government"]
+    },
+    "sections": {
+      "type": "array",
+      "description": "Array of H2 sections within the document",
+      "minItems": 1,
+      "maxItems": 20,
+      "items": {
+        "$ref": "#/definitions/section"
+      }
+    },
+    "wordCount": {
+      "type": "integer",
+      "description": "Approximate word count for size validation",
+      "minimum": 100,
+      "maximum": 10000,
+      "default": 500
+    },
+    "tags": {
+      "type": "array",
+      "description": "Optional metadata tags for categorization",
+      "items": {
+        "type": "string",
+        "enum": [
+          "principles",
+          "understanding",
+          "safety",
+          "building",
+          "buying",
+          "governance",
+          "security",
+          "privacy",
+          "legal",
+          "use-cases"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional fixture metadata",
+      "properties": {
+        "generatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of fixture generation"
+        },
+        "schemaVersion": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "description": "Semantic version of this schema",
+          "default": "1.0.0"
+        },
+        "checksum": {
+          "type": "string",
+          "description": "SHA-256 hash of generated content for integrity validation",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    }
+  },
+  "definitions": {
+    "section": {
+      "type": "object",
+      "required": ["heading", "content"],
+      "properties": {
+        "heading": {
+          "type": "string",
+          "description": "H2 section heading text",
+          "minLength": 3,
+          "maxLength": 80,
+          "examples": ["What is AI?", "Key Considerations"]
+        },
+        "content": {
+          "type": "string",
+          "description": "Markdown body content for this section",
+          "minLength": 50,
+          "maxLength": 5000
+        },
+        "subsections": {
+          "type": "array",
+          "description": "Optional H3 subsections",
+          "items": {
+            "$ref": "#/definitions/subsection"
+          },
+          "maxItems": 10
+        }
+      }
+    },
+    "subsection": {
+      "type": "object",
+      "required": ["heading", "content"],
+      "properties": {
+        "heading": {
+          "type": "string",
+          "description": "H3 subsection heading text",
+          "minLength": 3,
+          "maxLength": 60
+        },
+        "content": {
+          "type": "string",
+          "description": "Markdown body content for this subsection",
+          "minLength": 20,
+          "maxLength": 2000
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "filename": "principles.md",
+      "title": "The 10 Principles for AI in Government",
+      "sections": [
+        {
+          "heading": "Principle 1: Define the Outcome",
+          "content": "Start with a clear understanding of the problem you're trying to solve and the outcomes you want to achieve. AI should be a means to an end, not an end in itself.",
+          "subsections": [
+            {
+              "heading": "Why This Matters",
+              "content": "Without clear outcomes, AI projects often fail to deliver value or solve the wrong problem entirely."
+            }
+          ]
+        },
+        {
+          "heading": "Principle 2: Use AI Responsibly",
+          "content": "Consider the ethical implications of AI deployment, including fairness, transparency, and accountability."
+        }
+      ],
+      "wordCount": 450,
+      "tags": ["principles"],
+      "metadata": {
+        "schemaVersion": "1.0.0"
+      }
+    }
+  ]
+}
