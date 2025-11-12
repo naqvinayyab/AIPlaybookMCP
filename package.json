@@ -14,6 +14,10 @@
     "lint": "eslint src tests --ext .ts",
     "lint:fix": "eslint src tests --ext .ts --fix"
   },
+  "engines": {
+    "node": ">=20"
+  },
+  "preinstall": "node -e \"const major=Number(process.versions.node.split('.')[0]); if (major < 20) { console.error('Node >=20 is required. Current version: ' + process.versions.node); process.exit(1); }\"",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
     "fs": "^0.0.1-security",
