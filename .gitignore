@@ -9,3 +9,9 @@ dist/
 .claude/
 .claude/settings.local.json
 package-lock.json
+
+# Test coverage
+coverage/
+
+# TypeScript build info
+*.tsbuildinfo

@@ -7,7 +7,7 @@ import {
   ListToolsRequestSchema,
   Tool,
 } from '@modelcontextprotocol/sdk/types.js';
-import { readFileSync, writeFileSync, readdirSync, statSync } from 'fs';
+import { readFileSync, readdirSync, statSync } from 'fs';
 import { join, resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -22,7 +22,7 @@ interface DocFile {
   content?: string;
 }
 
-class AIPlaybookMCPServer {
+export class AIPlaybookMCPServer {
   private server: Server;
   private docFiles: DocFile[] = [];
 
@@ -43,27 +43,34 @@ class AIPlaybookMCPServer {
     this.setupHandlers();
   }
 
-  private loadDocFiles() {
+  private loadDocFiles(): void {
     try {
       const files = readdirSync(DOCS_DIR);
       this.docFiles = files
         .filter(file => file.endsWith('.md'))
         .map(file => {
-          const filePath = join(DOCS_DIR, file);
-          const stats = statSync(filePath);
-          return {
-            name: file,
-            path: filePath,
-            size: stats.size,
-          };
-        });
+          try {
+            const filePath = join(DOCS_DIR, file);
+            const stats = statSync(filePath);
+            return {
+              name: file,
+              path: filePath,
+              size: stats.size,
+            };
+          } catch {
+            // Skip files that can't be stat'd (may be in process of being deleted)
+            return null;
+          }
+        })
+        .filter((file): file is DocFile => file !== null);
     } catch (error) {
       console.error('Error loading doc files:', error);
       console.error('DOCS_DIR:', DOCS_DIR);
     }
   }
 
-  private setupHandlers() {
+  private setupHandlers(): void {
+    // eslint-disable-next-line @typescript-eslint/require-await
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       return {
         tools: [
@@ -116,33 +123,11 @@ class AIPlaybookMCPServer {
               properties: {},
             },
           },
-          {
-            name: 'write_doc',
-            description: 'Write or update content in an AI Playbook document',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                filename: {
-                  type: 'string',
-                  description: 'The name of the document file to write (e.g., "new_document.md")',
-                },
-                content: {
-                  type: 'string',
-                  description: 'The content to write to the file',
-                },
-                overwrite: {
-                  type: 'boolean',
-                  description: 'Whether to overwrite existing file (default: false)',
-                  default: false,
-                },
-              },
-              required: ['filename', 'content'],
-            },
-          },
         ] satisfies Tool[],
       };
     });
 
+    // eslint-disable-next-line @typescript-eslint/require-await
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const { name, arguments: args } = request.params;
 
@@ -190,27 +175,14 @@ class AIPlaybookMCPServer {
             ],
           };
 
-        case 'write_doc':
-          return {
-            content: [
-              {
-                type: 'text',
-                text: this.writeDocument(
-                  args?.filename as string,
-                  args?.content as string,
-                  args?.overwrite as boolean
-                ),
-              },
-            ],
-          };
-
         default:
           throw new Error(`Unknown tool: ${name}`);
       }
     });
   }
 
-  private formatDocList(): string {
+  // Made public for testing
+  public formatDocList(): string {
     const header = 'AI Playbook Documentation Files:\n' + '='.repeat(40) + '\n\n';
 
     const fileList = this.docFiles
@@ -223,24 +195,30 @@ class AIPlaybookMCPServer {
     return header + fileList + `\n\nTotal: ${this.docFiles.length} documents`;
   }
 
-  private readDocument(filename: string): string {
+  // Made public for testing
+  public readDocument(filename: string): string {
+    if (!filename || filename.trim() === '') {
+      return 'Error: filename is required';
+    }
+
     const docFile = this.docFiles.find(file => file.name === filename);
 
     if (!docFile) {
       const availableFiles = this.docFiles.map(f => f.name).join(', ');
-      return `Document "${filename}" not found. Available files: ${availableFiles}`;
+      return `Error: Document "${filename}" not found. Available files: ${availableFiles}`;
     }
 
     try {
       const content = readFileSync(docFile.path, 'utf-8');
       return `# ${filename}\n\n${content}`;
     } catch (error) {
-      return `Error reading file "${filename}": ${error}`;
+      return `Error reading file "${filename}": ${String(error)}`;
     }
   }
 
-  private searchDocuments(query: string, caseSensitive: boolean = false): string {
-    const results: Array<{ file: string; matches: string[] }> = [];
+  // Made public for testing
+  public searchDocuments(query: string, caseSensitive = false): string {
+    const results: { file: string; matches: string[] }[] = [];
 
     for (const docFile of this.docFiles) {
       try {
@@ -285,7 +263,8 @@ class AIPlaybookMCPServer {
     return output;
   }
 
-  private getDocumentSummary(): string {
+  // Made public for testing
+  public getDocumentSummary(): string {
     const summaries: Record<string, string> = {
       'principles.md': 'The 10 core principles for safe, responsible, and effective use of AI in government',
       'understanding_ai.md': 'Fundamental concepts about AI technology, capabilities, and limitations',
@@ -309,44 +288,15 @@ class AIPlaybookMCPServer {
     return output;
   }
 
-  private writeDocument(filename: string, content: string, overwrite: boolean = false): string {
-    if (!filename) {
-      return 'Error: filename is required';
-    }
-
-    if (!content) {
-      return 'Error: content is required';
-    }
-
-    // Ensure filename ends with .md
-    if (!filename.endsWith('.md')) {
-      filename += '.md';
-    }
-
-    const filePath = join(DOCS_DIR, filename);
-    const fileExists = this.docFiles.some(file => file.name === filename);
-
-    if (fileExists && !overwrite) {
-      return `Error: File "${filename}" already exists. Use overwrite: true to overwrite it.`;
-    }
-
-    try {
-      writeFileSync(filePath, content, 'utf-8');
-
-      // Reload doc files to include the new file
-      this.loadDocFiles();
-
-      const action = fileExists ? 'updated' : 'created';
-      return `Successfully ${action} document "${filename}" (${content.length} characters)`;
-    } catch (error) {
-      return `Error writing file "${filename}": ${error}`;
-    }
-  }
-
-  async start() {
+  async start(): Promise<void> {
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
     console.error('AI Playbook MCP Server running on stdio');
+  }
+
+  // Public getter for testing
+  public getServer(): Server {
+    return this.server;
   }
 }
 

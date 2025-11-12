@@ -1,5 +1,11 @@
 # AI Playbook MCP Server
 
+[![CI](https://github.com/naqvinayyab/AIPlaybookMCP/workflows/CI/badge.svg)](https://github.com/naqvinayyab/AIPlaybookMCP/actions)
+[![codecov](https://codecov.io/gh/naqvinayyab/AIPlaybookMCP/branch/main/graph/badge.svg)](https://codecov.io/gh/naqvinayyab/AIPlaybookMCP)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-18%20|%2020%20|%2022-green.svg)](https://nodejs.org/)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 An MCP (Model Context Protocol) server that provides access to AI Playbook documentation through structured tools.
 
 ## Overview
@@ -34,6 +40,33 @@ For development:
 ```bash
 npm run dev
 ```
+
+## Testing
+
+Run the comprehensive test suite:
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run tests with coverage report
+npm run test:coverage
+
+# Run linting
+npm run lint
+
+# Fix linting issues automatically
+npm run lint:fix
+```
+
+**Test Coverage**: The project maintains >80% code coverage across all files. Coverage thresholds are automatically enforced in CI/CD.
+
+**Test Structure**:
+- **Integration Tests** (21 tests): Test each MCP tool's functionality
+- **E2E Tests** (14 tests): Test complete server lifecycle and request-response cycles
 
 ## Usage with Claude Desktop
 
