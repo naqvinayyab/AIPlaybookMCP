@@ -3,7 +3,7 @@
 [![CI](https://github.com/naqvinayyab/AIPlaybookMCP/workflows/CI/badge.svg)](https://github.com/naqvinayyab/AIPlaybookMCP/actions)
 [![codecov](https://codecov.io/gh/naqvinayyab/AIPlaybookMCP/branch/main/graph/badge.svg)](https://codecov.io/gh/naqvinayyab/AIPlaybookMCP)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-18%20|%2020%20|%2022-green.svg)](https://nodejs.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-20%20|%2022-green.svg)](https://nodejs.org/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 An MCP (Model Context Protocol) server that provides access to AI Playbook documentation through structured tools.
@@ -40,6 +40,8 @@ For development:
 ```bash
 npm run dev
 ```
+
+Note for contributors: This project requires Node.js 20 or newer. We recommend using nvm — run `nvm use` in the repo root (the `.nvmrc` file specifies Node 20).
 
 ## Testing
 
