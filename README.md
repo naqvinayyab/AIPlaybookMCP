@@ -41,6 +41,8 @@ For development:
 npm run dev
 ```
 
+Note for contributors: This project requires Node.js 20 or newer. We recommend using nvm — run `nvm use` in the repo root (the `.nvmrc` file specifies Node 20).
+
 ## Testing
 
 Run the comprehensive test suite:
