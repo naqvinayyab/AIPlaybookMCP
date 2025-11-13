@@ -18,7 +18,9 @@ describe('Logger Service', () => {
   });
 
   afterEach(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     stderrSpy.mockRestore();
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     stdoutSpy.mockRestore();
   });
 

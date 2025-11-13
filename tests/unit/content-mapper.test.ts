@@ -16,14 +16,14 @@ describe('HtmlParser', () => {
   };
 
   it('should extract section by heading ID', async () => {
-    const html = '<h2 id="test-heading">Test Heading</h2><p>Content here</p><h2 id="next">Next</h2>';
+    const _html = '<h2 id="test-heading">Test Heading</h2><p>Content here</p><h2 id="next">Next</h2>';
 
     // Test will verify extraction when implementation is added
     expect(mockMapping.headingIds).toContain('test-heading');
   });
 
   it('should extract content from heading to next h2', async () => {
-    const html = `
+    const _html = `
       <h2 id="section1">Section 1</h2>
       <p>Paragraph 1</p>
       <h3>Subsection</h3>
@@ -36,7 +36,7 @@ describe('HtmlParser', () => {
   });
 
   it('should try heading IDs in priority order (first match wins)', async () => {
-    const html = `
+    const _html = `
       <h2 id="alternative-id">Alt Heading</h2>
       <p>Content</p>
       <h2 id="test-heading">Test Heading</h2>
@@ -61,14 +61,14 @@ describe('HtmlParser', () => {
       headingTextPatterns: [/^test.*heading$/i]
     };
 
-    const html = '<h2>Test Heading</h2><p>Content</p>';
+    const _html = '<h2>Test Heading</h2><p>Content</p>';
 
     // Test will verify fallback matching when implementation is added
     expect(mappingWithPattern.headingTextPatterns).toBeDefined();
   });
 
   it('should preserve all content including sub-headings (h3, h4, etc)', async () => {
-    const html = `
+    const _html = `
       <h2 id="main">Main</h2>
       <p>Intro</p>
       <h3>Subheading 1</h3>
@@ -85,7 +85,7 @@ describe('HtmlParser', () => {
   });
 
   it('should return error when section not found', async () => {
-    const html = '<h2 id="other">Other</h2><p>Content</p>';
+    const _html = '<h2 id="other">Other</h2><p>Content</p>';
     const mapping: SectionMapping = {
       filename: 'missing.md',
       headingIds: ['nonexistent'],

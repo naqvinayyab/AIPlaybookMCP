@@ -44,7 +44,7 @@ export class MarkdownConverter implements IMarkdownConverter {
         }
         return false;
       },
-      replacement: (content, node) => {
+      replacement: (content, _node) => {
         // Return content without the wrapping element's attributes
         // This effectively removes class and id attributes while preserving content
         return content;
@@ -56,7 +56,7 @@ export class MarkdownConverter implements IMarkdownConverter {
       filter: (node) => {
         if (node.nodeName === 'DIV') {
           const element = node;
-          const className = element.getAttribute('class') || '';
+          const className = element.getAttribute('class') ?? '';
           return className.includes('govspeak') || className.includes('govuk');
         }
         return false;

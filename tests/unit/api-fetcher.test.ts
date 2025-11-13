@@ -6,7 +6,8 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { RETRY_CONFIG, API_TIMEOUT_MS, MAX_RESPONSE_SIZE_MB } from '../../src/config/constants.js';
+import { RETRY_CONFIG, API_TIMEOUT_MS, MAX_RESPONSE_SIZE_MB, GOV_UK_API_URL } from '../../src/config/constants.js';
+import { ApiClient, ApiError } from '../../src/services/api-fetcher.js';
 
 describe('ApiClient', () => {
   beforeEach(() => {
@@ -29,54 +30,72 @@ describe('ApiClient', () => {
 
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => mockResponse
+      json: async () => mockResponse,
+      headers: {
+        get: vi.fn().mockReturnValue(null)
+      }
     });
 
-    // Test will pass when implementation is added
-    expect(true).toBe(true);
+    const client = new ApiClient(GOV_UK_API_URL, API_TIMEOUT_MS);
+    const result = await client.fetchContent();
+
+    expect(result).toBe(mockHtmlContent);
+    expect(global.fetch).toHaveBeenCalledOnce();
   });
 
-  it('should timeout after 15 seconds', async () => {
-    // Mock timeout scenario
-    global.fetch = vi.fn().mockImplementation(() =>
-      new Promise((resolve) => setTimeout(resolve, API_TIMEOUT_MS + 1000))
-    );
+  it('should retry 7 times with exponential backoff before failing', async () => {
+    let attemptCount = 0;
 
-    // Expect timeout error
-    expect(API_TIMEOUT_MS).toBe(15000);
-  });
+    global.fetch = vi.fn().mockImplementation(async () => {
+      attemptCount++;
+      throw new Error('Network error');
+    });
 
-  it('should retry 7 times with exponential backoff (1/2/4/8/16/32/64s)', async () => {
+    const client = new ApiClient(GOV_UK_API_URL, API_TIMEOUT_MS, 7, [10, 20, 30, 40, 50, 60, 70]);
+
+    // Should reject after all retries
+    try {
+      await client.fetchContent();
+      expect.fail('Should have thrown ApiError');
+    } catch (error) {
+      expect(error).toBeInstanceOf(ApiError);
+      expect((error as Error).message).toContain('Failed to fetch from gov.uk API after 7 attempts');
+    }
+
+    expect(attemptCount).toBe(7);
+  }, 10000);
+
+  it('should succeed on retry attempt', async () => {
+    let attemptCount = 0;
+    const mockHtmlContent = '<div>Success after retry</div>';
+
+    global.fetch = vi.fn().mockImplementation(async () => {
+      attemptCount++;
+      if (attemptCount < 3) {
+        throw new Error('Network error');
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          details: { body: mockHtmlContent },
+          content_id: 'test-id'
+        }),
+        headers: {
+          get: vi.fn().mockReturnValue(null)
+        }
+      };
+    });
+
+    const client = new ApiClient(GOV_UK_API_URL, API_TIMEOUT_MS, 7, [10, 20]);
+
+    const result = await client.fetchContent();
+    expect(result).toBe(mockHtmlContent);
+    expect(attemptCount).toBe(3);
+  }, 5000);
+
+  it('should verify retry configuration (7 attempts, exponential backoff)', async () => {
     expect(RETRY_CONFIG.maxAttempts).toBe(7);
     expect(RETRY_CONFIG.delays).toEqual([1000, 2000, 4000, 8000, 16000, 32000, 64000]);
-  });
-
-  it('should enforce 5MB size limit', async () => {
-    expect(MAX_RESPONSE_SIZE_MB).toBe(5);
-  });
-
-  it('should extract HTML from response.details.body', async () => {
-    const mockHtmlContent = '<div>Test</div>';
-    const mockResponse = {
-      details: {
-        body: mockHtmlContent
-      }
-    };
-
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => mockResponse
-    });
-
-    // Test will verify extraction when implementation is added
-    expect(true).toBe(true);
-  });
-
-  it('should throw ApiError on fetch failure', async () => {
-    global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
-
-    // Test will verify error handling when implementation is added
-    expect(true).toBe(true);
   });
 
   it('should throw ApiError on non-200 response', async () => {
@@ -86,7 +105,98 @@ describe('ApiClient', () => {
       statusText: 'Internal Server Error'
     });
 
-    // Test will verify error handling when implementation is added
-    expect(true).toBe(true);
+    const client = new ApiClient(GOV_UK_API_URL, API_TIMEOUT_MS, 1);
+
+    await expect(client.fetchContent()).rejects.toThrow(ApiError);
+    await expect(client.fetchContent()).rejects.toThrow('500');
+  });
+
+  it('should enforce 5MB size limit via content-length header', async () => {
+    const oversizeLength = (MAX_RESPONSE_SIZE_MB + 1) * 1024 * 1024;
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: {
+        get: vi.fn().mockReturnValue(oversizeLength.toString())
+      }
+    });
+
+    const client = new ApiClient(GOV_UK_API_URL, API_TIMEOUT_MS, 1);
+
+    await expect(client.fetchContent()).rejects.toThrow(ApiError);
+    await expect(client.fetchContent()).rejects.toThrow('exceeds maximum allowed');
+  });
+
+  it('should enforce 5MB size limit on actual HTML content', async () => {
+    // Create HTML larger than 5MB
+    const largeHtml = 'x'.repeat((MAX_RESPONSE_SIZE_MB + 1) * 1024 * 1024);
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        details: { body: largeHtml },
+        content_id: 'test-id'
+      }),
+      headers: {
+        get: vi.fn().mockReturnValue(null)
+      }
+    });
+
+    const client = new ApiClient(GOV_UK_API_URL, API_TIMEOUT_MS, 1);
+
+    await expect(client.fetchContent()).rejects.toThrow(ApiError);
+    await expect(client.fetchContent()).rejects.toThrow('exceeds maximum allowed');
+  });
+
+  it('should extract HTML from response.details.body', async () => {
+    const mockHtmlContent = '<div>Extracted Content</div>';
+    const mockResponse = {
+      details: {
+        body: mockHtmlContent
+      },
+      content_id: 'test-id'
+    };
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => mockResponse,
+      headers: {
+        get: vi.fn().mockReturnValue(null)
+      }
+    });
+
+    const client = new ApiClient(GOV_UK_API_URL, API_TIMEOUT_MS);
+    const result = await client.fetchContent();
+
+    expect(result).toBe(mockHtmlContent);
+  });
+
+  it('should throw ApiError on invalid response structure', async () => {
+    const invalidResponse = {
+      // Missing details.body
+      content_id: 'test-id'
+    };
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => invalidResponse,
+      headers: {
+        get: vi.fn().mockReturnValue(null)
+      }
+    });
+
+    const client = new ApiClient(GOV_UK_API_URL, API_TIMEOUT_MS, 1);
+
+    await expect(client.fetchContent()).rejects.toThrow(ApiError);
+    await expect(client.fetchContent()).rejects.toThrow('Invalid API response');
+  });
+
+  it('should throw ApiError on network error', async () => {
+    global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
+
+    const client = new ApiClient(GOV_UK_API_URL, API_TIMEOUT_MS, 1);
+
+    await expect(client.fetchContent()).rejects.toThrow(ApiError);
+    await expect(client.fetchContent()).rejects.toThrow('Failed to fetch from gov.uk API after 1 attempts');
   });
 });

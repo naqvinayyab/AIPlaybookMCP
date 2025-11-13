@@ -12,6 +12,7 @@ import type { CacheMetadata, CacheValidationResult } from '../models/cache-schem
 import { isValidCacheMetadata } from '../models/cache-schema.js';
 import { DEFAULT_CACHE_DIR, DEFAULT_METADATA_PATH, EXPECTED_FILENAMES } from '../config/constants.js';
 import { logInfo, logWarn, logDebug, logError } from './logger.js';
+import { formatErrorMessage } from '../utils/error-formatter.js';
 
 /**
  * Cache Manager Interface
@@ -79,11 +80,11 @@ export class CacheManager implements ICacheManager {
         sizeBytes: content.length
       });
     } catch (error) {
-      const errorMessage = `Failed to write cache file ${filename}: ${error instanceof Error ? error.message : String(error)}`;
+      const errorMessage = `Failed to write cache file ${filename}: ${formatErrorMessage(error)}`;
       logError(errorMessage, {
         operation: 'cache_write',
         filename,
-        error: error instanceof Error ? error.message : String(error)
+        error: formatErrorMessage(error)
       });
       throw new Error(errorMessage);
     }

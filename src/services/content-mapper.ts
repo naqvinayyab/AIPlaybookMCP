@@ -13,7 +13,7 @@ import { logInfo, logWarn, logDebug, logError } from './logger.js';
  * HTML Parser Interface
  */
 export interface IHtmlParser {
-  extractSections(htmlContent: string, mappings: SectionMapping[]): Promise<SectionExtractionResult[]>;
+  extractSections(htmlContent: string, mappings: SectionMapping[]): SectionExtractionResult[];
 }
 
 /**
@@ -23,10 +23,10 @@ export class HtmlParser implements IHtmlParser {
   /**
    * Extracts sections from HTML based on mapping configuration
    */
-  async extractSections(
+  extractSections(
     htmlContent: string,
     mappings: SectionMapping[]
-  ): Promise<SectionExtractionResult[]> {
+  ): SectionExtractionResult[] {
     logInfo('Parsing HTML and extracting sections', {
       operation: 'html_parse',
       mappingsCount: mappings.length,
@@ -37,7 +37,7 @@ export class HtmlParser implements IHtmlParser {
     const results: SectionExtractionResult[] = [];
 
     for (const mapping of mappings) {
-      const result = await this.extractSection(document, mapping);
+      const result = this.extractSection(document, mapping);
       results.push(result);
 
       if (result.success) {
@@ -45,7 +45,7 @@ export class HtmlParser implements IHtmlParser {
           operation: 'section_extract',
           filename: mapping.filename,
           headingId: result.matchedHeadingId,
-          contentLength: result.htmlContent?.length || 0
+          contentLength: result.htmlContent?.length ?? 0
         });
       } else {
         logWarn(`Failed to extract section: ${mapping.filename}`, {
@@ -86,10 +86,10 @@ export class HtmlParser implements IHtmlParser {
   /**
    * Extracts a single section from the document
    */
-  private async extractSection(
+  private extractSection(
     document: Document,
     mapping: SectionMapping
-  ): Promise<SectionExtractionResult> {
+  ): SectionExtractionResult {
     // Try heading IDs in priority order
     for (const headingId of mapping.headingIds) {
       const heading = document.getElementById(headingId);

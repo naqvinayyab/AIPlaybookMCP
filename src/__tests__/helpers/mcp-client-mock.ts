@@ -85,6 +85,7 @@ export class MockMCPClient {
   ): Promise<{ content: { type: string; text: string }[] }> {
     // Ensure content is loaded before calling any tool
     // This mimics the behavior of the actual MCP server request handler
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     await (this.mcpServer as any).ensureContentLoaded();
 
     let text: string;

@@ -108,7 +108,7 @@ export class ContentLoader implements IContentLoader {
         size: content.length,
         content,
         cacheInfo: {
-          contentHash: section?.contentHash || computeHash(content),
+          contentHash: section?.contentHash ?? computeHash(content),
           fetchedAt: metadata.fetchedAt,
           source: 'local-cache'
         }
@@ -154,7 +154,7 @@ export class ContentLoader implements IContentLoader {
 
       // Step 2: Parse HTML sections
       const parseStart = Date.now();
-      const extractionResults = await this.htmlParser.extractSections(
+      const extractionResults = this.htmlParser.extractSections(
         htmlContent,
         SECTION_MAPPINGS
       );
@@ -198,7 +198,7 @@ export class ContentLoader implements IContentLoader {
 
         sections.push({
           filename: result.mapping.filename,
-          headingId: result.matchedHeadingId || 'unknown',
+          headingId: result.matchedHeadingId ?? 'unknown',
           contentHash,
           sizeBytes: markdown.length,
           extracted: true
@@ -246,7 +246,7 @@ export class ContentLoader implements IContentLoader {
         const result = await this.loadFromCache(config, startTime);
 
         // Prepend warning message to indicate fallback
-        const warningMessage = `⚠️ WARNING: Unable to fetch latest content from gov.uk API. Serving cached content from ${result.documents[0]?.cacheInfo?.fetchedAt || 'unknown timestamp'}. Information may be outdated.`;
+        const warningMessage = `⚠️ WARNING: Unable to fetch latest content from gov.uk API. Serving cached content from ${result.documents[0]?.cacheInfo?.fetchedAt ?? 'unknown timestamp'}. Information may be outdated.`;
 
         logWarn('Using fallback cache after API failure', {
           operation: 'cache_fallback',

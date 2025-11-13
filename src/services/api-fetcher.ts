@@ -6,7 +6,6 @@
  */
 
 import { GOV_UK_API_URL, RETRY_CONFIG, API_TIMEOUT_MS, MAX_RESPONSE_SIZE_MB } from '../config/constants.js';
-import type { GovUkApiResponse } from '../models/api-response.js';
 import { isValidGovUkApiResponse } from '../models/api-response.js';
 import { logInfo, logWarn, logError, logDebug } from './logger.js';
 
@@ -120,7 +119,7 @@ export class ApiClient implements IApiClient {
       attempts: this.maxAttempts
     });
 
-    throw new ApiError(errorMessage, undefined, lastError || undefined);
+    throw new ApiError(errorMessage, undefined, lastError ?? undefined);
   }
 
   /**

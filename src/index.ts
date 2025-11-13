@@ -29,6 +29,7 @@ export class AIPlaybookMCPServer {
   private contentLoader: ContentLoader;
   private contentLoadResult: ContentLoadResult | null = null;
   private loadError: Error | null = null;
+  private loadingPromise: Promise<void> | null = null;
 
   constructor() {
     this.server = new Server(
@@ -61,31 +62,45 @@ export class AIPlaybookMCPServer {
 
   /**
    * Lazy initialization of content on first tool call
+   * Protected against race conditions from concurrent tool calls
    */
   private async ensureContentLoaded(): Promise<void> {
+    // If already loaded or failed, return immediately
     if (this.contentLoadResult !== null || this.loadError !== null) {
-      return; // Already loaded or failed
+      return;
     }
 
-    try {
-      // Parse CLI arguments to determine cache mode
-      const cliArgs = parseCliArgs();
-
-      // Load content based on CLI args
-      // --local flag: use cache exclusively (no API fallback)
-      // No flag: fetch from API with cache fallback
-      this.contentLoadResult = await this.contentLoader.loadContent({
-        useLocalCache: cliArgs.useLocalCache,
-        cacheDir: CACHE_DIR,
-        metadataPath: METADATA_PATH,
-        apiUrl: GOV_UK_API_URL,
-        apiTimeoutMs: API_TIMEOUT_MS,
-        validateCache: true
-      });
-    } catch (error) {
-      this.loadError = error instanceof Error ? error : new Error(String(error));
-      throw this.loadError;
+    // If currently loading, wait for existing operation
+    if (this.loadingPromise !== null) {
+      return this.loadingPromise;
     }
+
+    // Start new loading operation
+    this.loadingPromise = (async (): Promise<void> => {
+      try {
+        // Parse CLI arguments to determine cache mode
+        const cliArgs = parseCliArgs();
+
+        // Load content based on CLI args
+        // --local flag: use cache exclusively (no API fallback)
+        // No flag: fetch from API with cache fallback
+        this.contentLoadResult = await this.contentLoader.loadContent({
+          useLocalCache: cliArgs.useLocalCache,
+          cacheDir: CACHE_DIR,
+          metadataPath: METADATA_PATH,
+          apiUrl: GOV_UK_API_URL,
+          apiTimeoutMs: API_TIMEOUT_MS,
+          validateCache: true
+        });
+      } catch (error) {
+        this.loadError = error instanceof Error ? error : new Error(String(error));
+        throw this.loadError;
+      } finally {
+        this.loadingPromise = null;
+      }
+    })();
+
+    return this.loadingPromise;
   }
 
   /**
@@ -215,7 +230,7 @@ export class AIPlaybookMCPServer {
   // Made public for testing
   public formatDocList(): string {
     const warningPrefix = this.getWarningPrefix();
-    const documents = this.contentLoadResult?.documents || [];
+    const documents = this.contentLoadResult?.documents ?? [];
 
     const header = 'AI Playbook Documentation Files:\n' + '='.repeat(40) + '\n\n';
 
@@ -232,7 +247,7 @@ export class AIPlaybookMCPServer {
   // Made public for testing
   public readDocument(filename: string): string {
     const warningPrefix = this.getWarningPrefix();
-    const documents = this.contentLoadResult?.documents || [];
+    const documents = this.contentLoadResult?.documents ?? [];
 
     if (!filename || filename.trim() === '') {
       return warningPrefix + 'Error: filename is required';
@@ -246,18 +261,18 @@ export class AIPlaybookMCPServer {
     }
 
     // Content is already loaded in memory from ContentLoader
-    const content = docFile.content || '';
+    const content = docFile.content ?? '';
     return warningPrefix + `# ${filename}\n\n${content}`;
   }
 
   // Made public for testing
   public searchDocuments(query: string, caseSensitive = false): string {
     const warningPrefix = this.getWarningPrefix();
-    const documents = this.contentLoadResult?.documents || [];
+    const documents = this.contentLoadResult?.documents ?? [];
     const results: { file: string; matches: string[] }[] = [];
 
     for (const docFile of documents) {
-      const content = docFile.content || '';
+      const content = docFile.content ?? '';
       const lines = content.split('\n');
       const matches: string[] = [];
 
@@ -298,7 +313,7 @@ export class AIPlaybookMCPServer {
   // Made public for testing
   public getDocumentSummary(): string {
     const warningPrefix = this.getWarningPrefix();
-    const documents = this.contentLoadResult?.documents || [];
+    const documents = this.contentLoadResult?.documents ?? [];
 
     const summaries: Record<string, string> = {
       'principles.md': 'The 10 core principles for safe, responsible, and effective use of AI in government',
@@ -316,7 +331,7 @@ export class AIPlaybookMCPServer {
     let output = 'AI Playbook Document Summaries:\n' + '='.repeat(40) + '\n\n';
 
     documents.forEach((file: DocFile) => {
-      const summary = summaries[file.name] || 'No summary available';
+      const summary = summaries[file.name] ?? 'No summary available';
       output += `📄 ${file.name}\n   ${summary}\n\n`;
     });
 
