@@ -17,9 +17,9 @@ describe('read_doc tool', () => {
   beforeEach(() => {
     server = new AIPlaybookMCPServer();
 
-    // Get first available document from docs/ directory
-    const docsDir = join(process.cwd(), 'docs');
-    const docs = readdirSync(docsDir).filter((f) => f.endsWith('.md'));
+    // Get first available document from .cache/docs/ directory (new dynamic content system)
+    const cacheDocsDir = join(process.cwd(), '.cache', 'docs');
+    const docs = readdirSync(cacheDocsDir).filter((f) => f.endsWith('.md'));
     availableDoc = docs[0];
   });
 

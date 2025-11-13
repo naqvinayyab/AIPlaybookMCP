@@ -1,0 +1,12 @@
+{
+  "analytics_identifier": null,
+  "base_path": "/government/publications/ai-playbook-for-the-uk-government/artificial-intelligence-playbook-for-the-uk-government-html",
+  "content_id": "mock-content-id-12345",
+  "description": "Mock AI Playbook content for testing",
+  "details": {
+    "body": "<div class=\"govspeak\"><h2 id=\"principles\">Principles</h2><p>Test content for principles section.</p><h3>Subsection</h3><p>More detailed content here.</p><h2 id=\"understanding-ai\">Understanding AI</h2><p>Test content for understanding AI.</p><table><thead><tr><th>Feature</th><th>Description</th></tr></thead><tbody><tr><td>Test</td><td>Value</td></tr></tbody></table><h2 id=\"using-ai-safely-responsibly\">Using AI Safely and Responsibly</h2><p>Test content for safe AI use.</p><ul><li>Point 1</li><li>Point 2</li></ul><h2 id=\"building-ai-solutions\">Building AI Solutions</h2><p>Test content for building AI.</p><h2 id=\"buying-ai\">Buying AI</h2><p>Test content for procurement.</p><h2 id=\"governance\">Governance</h2><p>Test content for governance.</p><h2 id=\"security\">Security</h2><p>Test content for security.</p><blockquote><p>Important security note</p></blockquote><h2 id=\"data-protection-privacy\">Data Protection and Privacy</h2><p>Test content for data protection.</p><h2 id=\"legal-considerations\">Legal Considerations</h2><p>Test content for legal aspects.</p><h2 id=\"appendix-use-cases\">Appendix: Use Cases</h2><p>Test content for use cases.</p><ol><li>Case 1</li><li>Case 2</li></ol></div>"
+  },
+  "document_type": "html_publication",
+  "first_published_at": "2024-01-01T00:00:00Z",
+  "locale": "en"
+}

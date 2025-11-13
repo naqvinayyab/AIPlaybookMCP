@@ -68,12 +68,14 @@ describe('MCP Server Lifecycle', () => {
   it('should load docs from correct directory path', () => {
     const server = new AIPlaybookMCPServer();
 
-    // Server should use docs/ directory
-    // Verify by checking that docFiles array is populated
-    const docFiles = (server as any).docFiles;
-    expect(docFiles).toBeDefined();
-    expect(Array.isArray(docFiles)).toBe(true);
-    expect(docFiles.length).toBeGreaterThan(0);
+    // New architecture: docs loaded lazily on first tool call from .cache/docs/
+    // ContentLoader will be initialized with cache directory
+    const contentLoader = (server as any).contentLoader;
+    expect(contentLoader).toBeDefined();
+
+    // Content won't be loaded until first tool call (lazy loading)
+    const contentLoadResult = (server as any).contentLoadResult;
+    expect(contentLoadResult).toBeNull(); // Not loaded yet
   });
 
   it('should handle missing docs directory gracefully', () => {

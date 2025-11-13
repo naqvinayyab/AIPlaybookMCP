@@ -6,7 +6,7 @@
 [![Node.js](https://img.shields.io/badge/Node.js-18%20|%2020%20|%2022-green.svg)](https://nodejs.org/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-An MCP (Model Context Protocol) server that provides access to AI Playbook documentation through structured tools.
+An MCP (Model Context Protocol) server that provides access to AI Playbook documentation through structured tools, with automatic content fetching from gov.uk API.
 
 ## Overview
 
@@ -26,12 +26,19 @@ This MCP server exposes the AI Playbook documentation (10 markdown files coverin
 npm install
 ```
 
-2. Build the server:
+2. Generate documentation cache:
+```bash
+npm run cache-docs
+```
+
+This fetches the latest AI Playbook content from gov.uk API and caches it locally in `.cache/docs/`.
+
+3. Build the server:
 ```bash
 npm run build
 ```
 
-3. Run the server:
+4. Run the server:
 ```bash
 npm start
 ```
@@ -40,6 +47,53 @@ For development:
 ```bash
 npm run dev
 ```
+
+## Content Modes
+
+The server supports two operating modes:
+
+### 1. Fresh Content Mode (Default)
+
+Fetches latest documentation from gov.uk API on startup:
+
+```bash
+node dist/index.js
+```
+
+- Automatically fetches fresh content from gov.uk API
+- Falls back to cached content if API unavailable (with warning)
+- Startup time: ~20s (or <5s if using cache fallback)
+
+### 2. Offline/Local Mode
+
+Uses pre-cached documentation without network requests:
+
+```bash
+node dist/index.js --local
+```
+
+- No network calls made
+- Faster startup: <5s
+- Requires cache to be generated first (`npm run cache-docs`)
+- Ideal for offline development and CI/CD environments
+
+## Cache Management
+
+### Generate Cache
+
+Fetch latest content and update cache:
+
+```bash
+npm run cache-docs
+```
+
+### Cache Location
+
+Documentation cache is stored in:
+- `.cache/docs/` - 10 markdown files
+- `.cache/metadata.json` - Cache metadata with SHA-256 integrity hashes
+
+**Note**: Cache files are committed to version control to ensure documentation integrity and enable offline operation.
 
 ## Testing
 

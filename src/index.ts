@@ -7,24 +7,28 @@ import {
   ListToolsRequestSchema,
   Tool,
 } from '@modelcontextprotocol/sdk/types.js';
-import { readFileSync, readdirSync, statSync } from 'fs';
-import { join, resolve, dirname } from 'path';
+import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import type { DocFile, ContentLoadResult } from './models/doc-file.js';
+import { ContentLoader } from './services/content-loader.js';
+import { ApiClient } from './services/api-fetcher.js';
+import { HtmlParser } from './services/content-mapper.js';
+import { MarkdownConverter } from './services/html-converter.js';
+import { CacheManager } from './services/cache-manager.js';
+import { DEFAULT_CACHE_DIR, DEFAULT_METADATA_PATH, GOV_UK_API_URL, API_TIMEOUT_MS } from './config/constants.js';
+import { parseCliArgs } from './cli/args-parser.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const DOCS_DIR = resolve(__dirname, '..', 'docs');
-
-interface DocFile {
-  name: string;
-  path: string;
-  size: number;
-  content?: string;
-}
+const PROJECT_ROOT = resolve(__dirname, '..');
+const CACHE_DIR = resolve(PROJECT_ROOT, DEFAULT_CACHE_DIR);
+const METADATA_PATH = resolve(PROJECT_ROOT, DEFAULT_METADATA_PATH);
 
 export class AIPlaybookMCPServer {
   private server: Server;
-  private docFiles: DocFile[] = [];
+  private contentLoader: ContentLoader;
+  private contentLoadResult: ContentLoadResult | null = null;
+  private loadError: Error | null = null;
 
   constructor() {
     this.server = new Server(
@@ -39,34 +43,59 @@ export class AIPlaybookMCPServer {
       }
     );
 
-    this.loadDocFiles();
+    // Instantiate ContentLoader with all dependencies
+    const apiClient = new ApiClient(GOV_UK_API_URL, API_TIMEOUT_MS);
+    const htmlParser = new HtmlParser();
+    const markdownConverter = new MarkdownConverter();
+    const cacheManager = new CacheManager(CACHE_DIR, METADATA_PATH);
+
+    this.contentLoader = new ContentLoader(
+      apiClient,
+      htmlParser,
+      markdownConverter,
+      cacheManager
+    );
+
     this.setupHandlers();
   }
 
-  private loadDocFiles(): void {
-    try {
-      const files = readdirSync(DOCS_DIR);
-      this.docFiles = files
-        .filter(file => file.endsWith('.md'))
-        .map(file => {
-          try {
-            const filePath = join(DOCS_DIR, file);
-            const stats = statSync(filePath);
-            return {
-              name: file,
-              path: filePath,
-              size: stats.size,
-            };
-          } catch {
-            // Skip files that can't be stat'd (may be in process of being deleted)
-            return null;
-          }
-        })
-        .filter((file): file is DocFile => file !== null);
-    } catch (error) {
-      console.error('Error loading doc files:', error);
-      console.error('DOCS_DIR:', DOCS_DIR);
+  /**
+   * Lazy initialization of content on first tool call
+   */
+  private async ensureContentLoaded(): Promise<void> {
+    if (this.contentLoadResult !== null || this.loadError !== null) {
+      return; // Already loaded or failed
     }
+
+    try {
+      // Parse CLI arguments to determine cache mode
+      const cliArgs = parseCliArgs();
+
+      // Load content based on CLI args
+      // --local flag: use cache exclusively (no API fallback)
+      // No flag: fetch from API with cache fallback
+      this.contentLoadResult = await this.contentLoader.loadContent({
+        useLocalCache: cliArgs.useLocalCache,
+        cacheDir: CACHE_DIR,
+        metadataPath: METADATA_PATH,
+        apiUrl: GOV_UK_API_URL,
+        apiTimeoutMs: API_TIMEOUT_MS,
+        validateCache: true
+      });
+    } catch (error) {
+      this.loadError = error instanceof Error ? error : new Error(String(error));
+      throw this.loadError;
+    }
+  }
+
+  /**
+   * Gets warning prefix for tool responses
+   */
+  private getWarningPrefix(): string {
+    if (this.contentLoadResult && this.contentLoadResult.warnings.length > 0) {
+      return this.contentLoadResult.warnings.join('\n') + '\n\n';
+    }
+    return '';
   }
 
   private setupHandlers(): void {
@@ -127,9 +156,11 @@ export class AIPlaybookMCPServer {
       };
     });
 
-    // eslint-disable-next-line @typescript-eslint/require-await
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const { name, arguments: args } = request.params;
+
+      // Ensure content is loaded on first tool call
+      await this.ensureContentLoaded();
 
       switch (name) {
         case 'list_docs':
@@ -183,68 +214,69 @@ export class AIPlaybookMCPServer {
 
   // Made public for testing
   public formatDocList(): string {
+    const warningPrefix = this.getWarningPrefix();
+    const documents = this.contentLoadResult?.documents || [];
+
     const header = 'AI Playbook Documentation Files:\n' + '='.repeat(40) + '\n\n';
 
-    const fileList = this.docFiles
-      .map(file => {
+    const fileList = documents
+      .map((file: DocFile) => {
         const sizeKB = Math.round(file.size / 1024 * 100) / 100;
         return `📄 ${file.name} (${sizeKB} KB)`;
       })
       .join('\n');
 
-    return header + fileList + `\n\nTotal: ${this.docFiles.length} documents`;
+    return warningPrefix + header + fileList + `\n\nTotal: ${documents.length} documents`;
   }
 
   // Made public for testing
   public readDocument(filename: string): string {
+    const warningPrefix = this.getWarningPrefix();
+    const documents = this.contentLoadResult?.documents || [];
+
     if (!filename || filename.trim() === '') {
-      return 'Error: filename is required';
+      return warningPrefix + 'Error: filename is required';
     }
 
-    const docFile = this.docFiles.find(file => file.name === filename);
+    const docFile = documents.find((file: DocFile) => file.name === filename);
 
     if (!docFile) {
-      const availableFiles = this.docFiles.map(f => f.name).join(', ');
-      return `Error: Document "${filename}" not found. Available files: ${availableFiles}`;
+      const availableFiles = documents.map((f: DocFile) => f.name).join(', ');
+      return warningPrefix + `Error: Document "${filename}" not found. Available files: ${availableFiles}`;
     }
 
-    try {
-      const content = readFileSync(docFile.path, 'utf-8');
-      return `# ${filename}\n\n${content}`;
-    } catch (error) {
-      return `Error reading file "${filename}": ${String(error)}`;
-    }
+    // Content is already loaded in memory from ContentLoader
+    const content = docFile.content || '';
+    return warningPrefix + `# ${filename}\n\n${content}`;
   }
 
   // Made public for testing
   public searchDocuments(query: string, caseSensitive = false): string {
+    const warningPrefix = this.getWarningPrefix();
+    const documents = this.contentLoadResult?.documents || [];
     const results: { file: string; matches: string[] }[] = [];
 
-    for (const docFile of this.docFiles) {
-      try {
-        const content = readFileSync(docFile.path, 'utf-8');
-        const lines = content.split('\n');
-        const matches: string[] = [];
+    for (const docFile of documents) {
+      const content = docFile.content || '';
+      const lines = content.split('\n');
+      const matches: string[] = [];
 
-        lines.forEach((line, index) => {
-          const searchLine = caseSensitive ? line : line.toLowerCase();
-          const searchQuery = caseSensitive ? query : query.toLowerCase();
+      lines.forEach((line: string, index: number) => {
+        const searchLine = caseSensitive ? line : line.toLowerCase();
+        const searchQuery = caseSensitive ? query : query.toLowerCase();
 
-          if (searchLine.includes(searchQuery)) {
-            matches.push(`Line ${index + 1}: ${line.trim()}`);
-          }
-        });
-
-        if (matches.length > 0) {
-          results.push({ file: docFile.name, matches });
+        if (searchLine.includes(searchQuery)) {
+          matches.push(`Line ${index + 1}: ${line.trim()}`);
         }
-      } catch (error) {
-        console.error(`Error searching file ${docFile.name}:`, error);
+      });
+
+      if (matches.length > 0) {
+        results.push({ file: docFile.name, matches });
       }
     }
 
     if (results.length === 0) {
-      return `No matches found for "${query}" in AI Playbook documents.`;
+      return warningPrefix + `No matches found for "${query}" in AI Playbook documents.`;
     }
 
     let output = `Search Results for "${query}":\n` + '='.repeat(50) + '\n\n';
@@ -260,11 +292,14 @@ export class AIPlaybookMCPServer {
       output += '\n';
     });
 
-    return output;
+    return warningPrefix + output;
   }
 
   // Made public for testing
   public getDocumentSummary(): string {
+    const warningPrefix = this.getWarningPrefix();
+    const documents = this.contentLoadResult?.documents || [];
+
     const summaries: Record<string, string> = {
       'principles.md': 'The 10 core principles for safe, responsible, and effective use of AI in government',
       'understanding_ai.md': 'Fundamental concepts about AI technology, capabilities, and limitations',
@@ -280,12 +315,12 @@ export class AIPlaybookMCPServer {
 
     let output = 'AI Playbook Document Summaries:\n' + '='.repeat(40) + '\n\n';
 
-    this.docFiles.forEach(file => {
+    documents.forEach((file: DocFile) => {
       const summary = summaries[file.name] || 'No summary available';
       output += `📄 ${file.name}\n   ${summary}\n\n`;
     });
 
-    return output;
+    return warningPrefix + output;
   }
 
   async start(): Promise<void> {

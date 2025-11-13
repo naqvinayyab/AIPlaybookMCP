@@ -12,15 +12,22 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint src tests --ext .ts",
-    "lint:fix": "eslint src tests --ext .ts --fix"
+    "lint:fix": "eslint src tests --ext .ts --fix",
+    "cache-docs": "tsx scripts/fetch-docs.ts",
+    "cache-docs:fail-on-error": "tsx scripts/fetch-docs.ts --fail-on-error"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
+    "@toolprint/mcp-logger": "^0.0.7",
     "fs": "^0.0.1-security",
-    "path": "^0.12.7"
+    "linkedom": "^0.18.12",
+    "path": "^0.12.7",
+    "turndown": "^7.2.2",
+    "turndown-plugin-gfm": "^1.0.2"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "@types/turndown": "^5.0.6",
     "@typescript-eslint/eslint-plugin": "^8.46.4",
     "@typescript-eslint/parser": "^8.46.4",
     "@vitest/coverage-v8": "^4.0.8",

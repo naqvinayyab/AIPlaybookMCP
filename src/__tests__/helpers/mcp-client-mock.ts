@@ -83,6 +83,10 @@ export class MockMCPClient {
     toolName: string,
     args: Record<string, unknown>
   ): Promise<{ content: { type: string; text: string }[] }> {
+    // Ensure content is loaded before calling any tool
+    // This mimics the behavior of the actual MCP server request handler
+    await (this.mcpServer as any).ensureContentLoaded();
+
     let text: string;
 
     switch (toolName) {
